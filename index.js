@@ -9,6 +9,7 @@ const create = val => {
     return fn
   }
   fn.data = data // cache for later
+  fn.toString = ()=> `stream(${data.val})`
   return fn
 }
 
@@ -37,9 +38,14 @@ const merge = streams => {
 }
 
 // Scan all values in stream into a single rolling value
-const scan = curryN(3, (fn, accum, stream) => 
-  map(val => (accum = fn(accum, val)), stream)
-)
+const scan = curryN(3, (fn, accum, stream) => {
+  const newS = create(accum)
+  stream.data.updaters.push(val => {
+    accum = fn(accum, val)
+    newS(accum)
+  })
+  return newS
+})
 
 // Collect values from a stream into an array, and emit that array as soon as n values have been collected
 const buffer = curryN(2, (n, stream) => {

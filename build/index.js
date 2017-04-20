@@ -9,11 +9,14 @@ var create = function (val) {
     return fn;
   };
   fn.data = data; // cache for later
+  fn.toString = function () {
+    return 'stream(' + data.val + ')';
+  };
   return fn;
 };
 
 // Update stream data and all dependents with a new val
-var update = function (streamData, val, ts) {
+var update = function (streamData, val) {
   streamData.val = val;
   for (var i = 0; i < streamData.updaters.length; ++i) {
     streamData.updaters[i](val);
@@ -40,9 +43,12 @@ var merge = function (streams) {
 
 // Scan all values in stream into a single rolling value
 var scan = curryN(3, function (fn, accum, stream) {
-  return map(function (val) {
-    return accum = fn(accum, val);
-  }, stream);
+  var newS = create(accum);
+  stream.data.updaters.push(function (val) {
+    accum = fn(accum, val);
+    newS(accum);
+  });
+  return newS;
 });
 
 // Collect values from a stream into an array, and emit that array as soon as n values have been collected
