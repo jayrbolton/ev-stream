@@ -13,7 +13,7 @@ const create = val => {
 }
 
 // Update stream data and all dependents with a new val
-const update = (streamData, val, ts) => {
+const update = (streamData, val) => {
   streamData.val = val
   for(var i = 0; i < streamData.updaters.length; ++i) {
     streamData.updaters[i](val)
