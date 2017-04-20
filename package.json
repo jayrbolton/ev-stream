@@ -2,12 +2,13 @@
   "name": "event-stream",
   "version": "0.0.1",
   "description": "Event streams",
-  "main": "index.js",
+  "main": "build/index.js",
   "directories": {
     "test": "test"
   },
   "scripts": {
-    "test": "tape test/index.js | tap-spec"
+    "test": "tape test/index.js | tap-spec",
+    "build": "babel index.js --presets es2040 > build/index.js"
   },
   "repository": {
     "type": "git",
@@ -25,6 +26,7 @@
   },
   "homepage": "https://github.com/jayrbolton/event-stream#readme",
   "devDependencies": {
+    "es2040": "1.2.5",
     "tap-spec": "4.1.1",
     "tape": "4.6.3"
   }

@@ -89,3 +89,15 @@ test("dependency graph", t => {
   t.end()
 })
 
+test("weird example", t => {
+  const s1 = stream.create()
+  const s2 = stream.create()
+  stream.map(s1, s2)
+  stream.map(s1, stream.map(n => n * 2, s2))
+  var arr = []
+  stream.map(x => arr.push(x), s1)
+  s2(1)
+  t.deepEqual(arr, [1, 2])
+  t.end()
+})
+

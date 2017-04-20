@@ -1,14 +1,15 @@
+const curryN = require('ramda/src/curryN')
+
 // Create a new stream with an optional initial value
 const create = val => {
-  const streamData = {val, updaters: []}
-  const streamFunc = function(val) {
-    if(arguments.length === 0) return streamData.val
-    update(streamData, val, Number(new Date()))
-    return streamFunc
+  const data = {val, updaters: []}
+  const fn = function(val) {
+    if(arguments.length === 0) return data.val
+    update(data, val)
+    return fn
   }
-  streamFunc.data = streamData // cache for later
-  streamFunc.toString = () => `stream(${streamData.val})`
-  return streamFunc
+  fn.data = data // cache for later
+  return fn
 }
 
 // Update stream data and all dependents with a new val
@@ -20,14 +21,14 @@ const update = (streamData, val, ts) => {
 }
 
 // Create a new stream with fn applied to all values within stream
-const map = (fn, stream) => {
+const map = curryN(2, (fn, stream) => {
   const newS = create()
   stream.data.updaters.push(val => newS(fn(val)))
   return newS
-}
+})
 
 // Merge multiple streams into one, where each event on each streams fires separately in the result stream
-const merge = (streams) => {
+const merge = streams => {
   const newS = create()
   for(var i = 0; i < streams.length; ++i) {
     streams[i].data.updaters.push(newS)
@@ -36,11 +37,12 @@ const merge = (streams) => {
 }
 
 // Scan all values in stream into a single rolling value
-const scan = (fn, accum, stream) => 
+const scan = curryN(3, (fn, accum, stream) => 
   map(val => (accum = fn(accum, val)), stream)
+)
 
 // Collect values from a stream into an array, and emit that array as soon as n values have been collected
-const buffer = (n, stream) => {
+const buffer = curryN(2, (n, stream) => {
   const newS = create()
   var buff = []
   stream.data.updaters.push(val => {
@@ -51,14 +53,14 @@ const buffer = (n, stream) => {
     }
   })
   return newS
-}
+})
 
 // Filter values out of a stream using a predicate
-const filter = (fn, stream) => {
+const filter = curryN(2, (fn, stream) => {
   const newS = create()
   stream.data.updaters.push(val => { if(fn(val)) newS(val) })
   return newS
-}
+})
 
 module.exports = {create, map, merge, scan, buffer, filter}
 
