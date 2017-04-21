@@ -70,14 +70,12 @@ const filter = curryN(2, (fn, stream) => {
 
 // Only emit values from a stream at most every ms
 const debounce = curryN(2, (ms, stream) => {
-  var ts = Number(new Date())
+  var lastVal, timeout
   const newS = create()
   stream.data.updaters.push(val => {
-    const now = Number(new Date())
-    if (now > ts + ms) {
-      ts = now
-      newS(val)
-    }
+    lastVal = val
+    clearTimeout(timeout)
+    timeout = setTimeout(() => newS(lastVal), ms)
   })
   return newS
 })

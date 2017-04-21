@@ -94,3 +94,18 @@ f() // -> undefined
 s(4)
 f() // -> 4
 ```
+
+## debounce(ms, stream)
+
+Create a stream that only emits values from a source stream at most every `ms`
+
+```js
+const s = stream.create()
+const d = debounce(10, s)
+s(1)
+s(2)
+s(3)
+s(4)
+s(5)
+d() // -> 5
+```

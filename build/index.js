@@ -76,14 +76,14 @@ var filter = curryN(2, function (fn, stream) {
 
 // Only emit values from a stream at most every ms
 var debounce = curryN(2, function (ms, stream) {
-  var ts = Number(new Date());
+  var lastVal, timeout;
   var newS = create();
   stream.data.updaters.push(function (val) {
-    var now = Number(new Date());
-    if (now > ts + ms) {
-      ts = now;
-      newS(val);
-    }
+    lastVal = val;
+    clearTimeout(timeout);
+    timeout = setTimeout(function () {
+      return newS(lastVal);
+    }, ms);
   });
   return newS;
 });

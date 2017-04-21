@@ -101,3 +101,14 @@ test("weird example", t => {
   t.end()
 })
 
+test("debounce stream", t => {
+  const s = stream.create()
+  const d = stream.debounce(10, s)
+  s(1); s(2); s(3); s(4); s(5)
+  t.deepEqual(d(), undefined)
+  setTimeout(() => {
+    t.deepEqual(d(), 5)
+    t.end()
+  }, 10)
+})
+
