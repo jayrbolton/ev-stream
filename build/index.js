@@ -74,5 +74,19 @@ var filter = curryN(2, function (fn, stream) {
   return newS;
 });
 
-module.exports = { create: create, map: map, merge: merge, scan: scan, buffer: buffer, filter: filter };
+// Only emit values from a stream at most every ms
+var debounce = curryN(2, function (ms, stream) {
+  var ts = Number(new Date());
+  var newS = create();
+  stream.data.updaters.push(function (val) {
+    var now = Number(new Date());
+    if (now > ts + ms) {
+      ts = now;
+      newS(val);
+    }
+  });
+  return newS;
+});
+
+module.exports = { create: create, map: map, merge: merge, scan: scan, buffer: buffer, filter: filter, debounce: debounce };
 

@@ -68,5 +68,19 @@ const filter = curryN(2, (fn, stream) => {
   return newS
 })
 
-module.exports = {create, map, merge, scan, buffer, filter}
+// Only emit values from a stream at most every ms
+const debounce = curryN(2, (ms, stream) => {
+  var ts = Number(new Date())
+  const newS = create()
+  stream.data.updaters.push(val => {
+    const now = Number(new Date())
+    if (now > ts + ms) {
+      ts = now
+      newS(val)
+    }
+  })
+  return newS
+})
+
+module.exports = {create, map, merge, scan, buffer, filter, debounce}
 
