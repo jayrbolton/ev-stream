@@ -80,10 +80,13 @@ var debounce = curryN(2, function (ms, stream) {
   var newS = create();
   stream.data.updaters.push(function (val) {
     lastVal = val;
-    clearTimeout(timeout);
-    timeout = setTimeout(function () {
-      return newS(lastVal);
-    }, ms);
+    if (!timeout) {
+      timeout = setTimeout(function () {
+        clearTimeout(timeout);
+        timeout = null;
+        newS(lastVal);
+      }, ms);
+    }
   });
   return newS;
 });

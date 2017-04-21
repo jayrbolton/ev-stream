@@ -107,5 +107,10 @@ s(2)
 s(3)
 s(4)
 s(5)
-d() // -> 5
+d() // -> undefined
+setTimeout(()=> {
+  d() // -> 5
+}, 10)
 ```
+
+In the above example, a 10ms timer is started at `s(1)`, and the value 5 is emitted from `d` when the timer is finished.

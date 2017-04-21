@@ -74,8 +74,13 @@ const debounce = curryN(2, (ms, stream) => {
   const newS = create()
   stream.data.updaters.push(val => {
     lastVal = val
-    clearTimeout(timeout)
-    timeout = setTimeout(() => newS(lastVal), ms)
+    if(!timeout) {
+      timeout = setTimeout(() => {
+        clearTimeout(timeout)
+        timeout = null
+        newS(lastVal)
+      }, ms)
+    }
   })
   return newS
 })
