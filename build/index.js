@@ -75,6 +75,7 @@ var filter = curryN(2, function (fn, stream) {
 });
 
 // Only emit values from a stream at most every ms
+// After an ms delay when the first value is emitted from the source stream, the new stream then emits the _latest_ value from the source stream
 var debounce = curryN(2, function (ms, stream) {
   var lastVal, timeout;
   var newS = create();
@@ -82,7 +83,6 @@ var debounce = curryN(2, function (ms, stream) {
     lastVal = val;
     if (!timeout) {
       timeout = setTimeout(function () {
-        clearTimeout(timeout);
         timeout = null;
         newS(lastVal);
       }, ms);

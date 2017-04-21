@@ -69,6 +69,7 @@ const filter = curryN(2, (fn, stream) => {
 })
 
 // Only emit values from a stream at most every ms
+// After an ms delay when the first value is emitted from the source stream, the new stream then emits the _latest_ value from the source stream
 const debounce = curryN(2, (ms, stream) => {
   var lastVal, timeout
   const newS = create()
@@ -76,7 +77,6 @@ const debounce = curryN(2, (ms, stream) => {
     lastVal = val
     if(!timeout) {
       timeout = setTimeout(() => {
-        clearTimeout(timeout)
         timeout = null
         newS(lastVal)
       }, ms)
