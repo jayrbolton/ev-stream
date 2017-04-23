@@ -9,7 +9,7 @@ const create = val => {
     return fn
   }
   fn.data = data // cache for later
-  fn.toString = ()=> `stream(${data.val})`
+  fn.toString = () => `stream(${data.val})`
   return fn
 }
 
@@ -68,22 +68,95 @@ const filter = curryN(2, (fn, stream) => {
   return newS
 })
 
-// Only emit values from a stream at most every ms
-// After an ms delay when the first value is emitted from the source stream, the new stream then emits the _latest_ value from the source stream
-const debounce = curryN(2, (ms, stream) => {
-  var lastVal, timeout
+// Scan and merge several streams into one, starting with an initial value
+const scanMerge = curryN(2, (streams, accum) => {
+  const newS = create(accum)
+  for(var i = 0; i < streams.length; ++i) {
+    const [s, fn] = streams[i]
+    s.data.updaters.push(val => {
+      accum = fn(accum, val)
+      newS(accum)
+    })
+  }
+  return newS
+})
+
+// Create a stream that has val every time 'stream' emits anything
+const always = curryN(2, (val, stream) => map(() => val, stream))
+
+// Create a new stream whose immediate value is val
+const defaultTo = curryN(2, (val, stream) => {
+  const newS = create(val)
+  stream.data.updaters.push(val => newS(val))
+  return newS
+})
+
+// Log values on a stream for quick debugging
+const log = (stream, annotation) => {
+  stream.data.updaters.push(x => console.log(annotation || '', x))
+  return stream
+}
+
+// Map over a stream, where fn returns a nested stream. Flatten into a single-level stream
+const flatMap = curryN(2, (fn, stream) => {
+  const newS = create(stream())
+  stream.data.updaters.push(val => map(val => newS(val), fn(val)))
+  return newS
+})
+
+// -- Time-related
+//
+
+// Indefinetly emit a timestamp every ms until maxMs
+const every = (ms, maxMs) => {
+  const newS = create()
+  var target = Number(new Date())
+  const maxT = target + maxMs
+  function timer() {
+    const now = Number(new Date())
+    target += ms
+    newS(now)
+    if(now < maxT) setTimeout(timer, target - now)
+  }
+  timer()
+  return newS
+}
+
+// Create a stream that emits values from 'stream' after a ms delay
+const delay = (ms, stream) => {
   const newS = create()
   stream.data.updaters.push(val => {
-    lastVal = val
+    setTimeout(() => newS(val), ms)
+  })
+  return newS
+}
+
+// Only emit values from a stream at most every ms
+// After an ms delay when the first value is emitted from the source stream, the new stream then emits the _latest_ value from the source stream
+const throttle = curryN(2, (ms, stream) => {
+  var timeout
+  const newS = create()
+  stream.data.updaters.push(() => {
     if(!timeout) {
       timeout = setTimeout(() => {
         timeout = null
-        newS(lastVal)
+        newS(stream())
       }, ms)
     }
   })
   return newS
 })
 
-module.exports = {create, map, merge, scan, buffer, filter, debounce}
+// Create a stream that emits values from 'stream' after ms of silence
+const afterSilence = (ms, stream) => {
+  const newS = create()
+  var timeout
+  stream.data.updaters.push(val => {
+    if(timeout) clearTimeout(timeout)
+    timeout = setTimeout(() => newS(stream()), ms)
+  })
+  return newS
+}
+
+module.exports = {create, map, merge, scan, buffer, filter, scanMerge, defaultTo, always, flatMap, delay, every, throttle, afterSilence}
 

@@ -7,7 +7,7 @@
     "test": "test"
   },
   "scripts": {
-    "test": "tape test/index.js | tap-spec",
+    "test": "npm run build; tape test/index.js | tap-spec",
     "build": "babel index.js --presets es2040 > build/index.js"
   },
   "repository": {
