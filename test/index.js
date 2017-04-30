@@ -124,15 +124,20 @@ test("flatMap", t => {
 })
 
 test("every", t => {
-  const e = stream.every(100, 200)
+  const end = stream.create()
+  const e = stream.every(100, end)
   const s = stream.scan((count, n) => count + 1, 0, e)
   setTimeout(() => {
-    t.deepEqual(s(), 1)
+    t.deepEqual(s(), 1, 'should increment')
   }, 101)
   setTimeout(() => {
-    t.deepEqual(s(), 2)
-    t.end()
+    t.deepEqual(s(), 2, 'should increment again')
+    end(true)
   }, 201)
+  setTimeout(() => {
+    t.deepEqual(s(), 2, 'should be ended')
+    t.end()
+  }, 401)
 })
 
 test("delay", t => {

@@ -135,16 +135,17 @@ var flatMap = curryN(2, function (fn, stream) {
 // -- Time-related
 //
 
-// Indefinetly emit a timestamp every ms until maxMs
-var every = function (ms, maxMs) {
+// Emit a timestamp every ms until maxMs
+var every = function (ms, endStream) {
   var newS = create();
   var target = Number(new Date());
-  var maxT = target + maxMs;
   function timer() {
     var now = Number(new Date());
     target += ms;
-    newS(now);
-    if (now < maxT) setTimeout(timer, target - now);
+    if (endStream() === undefined) {
+      newS(now);
+      setTimeout(timer, target - now);
+    }
   }
   timer();
   return newS;

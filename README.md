@@ -1,17 +1,22 @@
+# ev-stream
 
-# event-stream
+A tiny implementation of FRP **event streams** in JS, inspired by [flyd](https://github.com/paldepind/flyd). This type of data structure is often known as an "observable."
 
-Simple & tiny implementation of FRP event streams in JS, heavily inspired by [flyd](https://github.com/paldepind/flyd), but without atomic updates. This type of data structure is often known as an "observable."
-
-* very tiny, simple, and minimal implementation (less than 200 SLOC)
+* very simple and minimal implementation (less than 200 SLOC)
 * eager, non-lazy evaluation
 * catered towards web development
+* all functions are curried
+* no atomic updates
 
 # API
 
 ## create(val)
 
-Create a new event stream with an optional initial value. Push to the stream by calling it as a function with a value. Read from the stream by calling it with no arguments.
+Create a new event stream with an optional initial value. Push to the stream by **calling it as a function with a value**. Read from the stream by **calling it with no arguments**.
+
+```
+a -> Stream(a)
+```
 
 ```js
 const s = stream.create()
@@ -24,11 +29,15 @@ s() // -> 2
 
 ### A note about pushing values
 
-**In practical use, you will not want to manually push values into streams, as shown above**. Manual pushing is provided mostly for convenience, and for illustrative purposes. In your applications, you will want to avoid pushing values to streams, as that will become messy. **Instead, focus on using the following set of higher-order functions to create new streams from existing ones:**
+**In practical use, you will not need to manually push values into streams, as shown above**. Manual pushing is provided mostly for convenience, and for illustrative purposes. In your applications, you will want to generally avoid pushing values to streams, except when binding events or wrapping callback functions. **Instead, focus on using the following set of higher-order functions to create new streams from existing ones:**
 
 ## map(fn, stream)
 
 Create a stream where each value is `fn` applied to each value from a source stream.
+
+```
+(a -> b) -> Stream(a) -> Stream(b)
+```
 
 ```
 s:                {--1--2--3--}
@@ -47,6 +56,10 @@ mapped() // -> 3
 ## merge([stream1, stream2, ...])
 
 Create a stream that emits values from any of the source streams.
+
+```
+[Stream(a)] -> Stream(a)
+```
 
 ```
 s1:              {--a--b--c--}
@@ -71,6 +84,10 @@ merged() // -> 3
 Create a stream whose values are the result of applying `fn` to a starting value and every value from a source stream. Similar to `reduce` for arrays.
 
 ```
+((a, b) -> a) -> a -> Stream(b) -> Stream(a)
+```
+
+```
 s:                             {--1--2--3--}
 scan((sum, n) => sum+n, 0, s): {--1--3--6--}
 ```
@@ -86,33 +103,19 @@ s(3)
 scanned() // -> 6
 ```
 
-## buffer(n, stream)
-
-Collect values from stream into a buffer array until the array reaches length `n`. Once it reaches length `n`, then emit that array into a stream.
-
-```
-s:            {---1-2--3--4---}
-buffer(2, s): {-----▼-----▼---}
-                    [1,2] [3,4]
-```
-
-
-```js
-const s = stream.create()
-const b = buffer(2, s)
-s(1)
-b() // -> undefined
-s(2)
-b() // -> [1,2]
-s(3)
-b() // -> [1,2]
-s(4)
-b() // -> [3,4]
-```
 
 ## filter(fn, stream)
 
 Create a stream that only emits values from a source stream when `fn` is true when applied to the value from the source stream.
+
+```
+(a -> Boolean) -> Stream(a) -> Stream(a)
+```
+
+```
+s:                 {---1---2---3---4---}
+filter(isEven, s): {-------2-------4---}
+```
 
 ```js
 const s = stream.create()
@@ -129,11 +132,15 @@ f() // -> 4 (f emits 4)
 
 ## always(val, stream)
 
-Create a stream that always emits `val` whenever anything is emitted from the source stream.
+Create a stream that always emits `val` whenever anything is emitted from the source stream. This is equivalent to: `map(x => val, stream)`
+
+```
+a -> Stream(b) -> Stream(a)
+```
 
 ```
 s:                {--a--b--c--}
-defaultTo(z, s):  {--z--z--z--}
+always(z, s):  {--z--z--z--}
 ```
 
 ```js
@@ -150,7 +157,11 @@ a() // -> 1
 
 ## defaultTo(val, stream)
 
-Create a stream with all the same values from the source stream, but whose immediate, default value is `val`. This is equivalent to: `map(x => val, stream)`
+Create a stream with all the same values from the source stream, but whose immediate, default value is `val`. 
+
+```
+a -> Stream(a) -> Stream(a)
+```
 
 ```
 s:                {--a--b--c--}
@@ -160,8 +171,10 @@ defaultTo(z, s):  {z-a--b--c--}
 ```js
 const s = stream.create()
 const d = stream.defaultTo('hi!', s)
+s() // -> undefined
 d() // -> 'hi!'
 s(1)
+s() // -> 1
 d() // -> 1
 ```
 
@@ -176,9 +189,49 @@ s(1)
 // console prints: "s 1"
 ```
 
+## flatMap(fn, stream)
+
+Map over a stream, producing a new stream for every value. An example use is to map over clicks, creating ajax requests for each click, and produce a stream of ajax responses.
+
+```
+(a -> Stream(b)) -> Stream(a) -> Stream(b)
+```
+
+```
+s:              {--x------x--}
+map(fn, s):     {--▼------▼--} // stream of streams
+                  {--y}  {--y}
+flatMap(fn, s): {----y------y} // flattened
+```
+
+```js
+const s = stream.create()
+const sNested = stream.create()
+const s1 = stream.flatMap(v => sNested, s)
+s(1)
+s1() // -> undefined
+sNested(1)
+s1() // -> 1
+
+// flatMap is useful for getting a stream of ajax responses
+const click$ = stream.create()
+const ajaxResponse$ = stream.flatMap(ev => makeAjaxRequest(xyz), click$)
+```
+
 ## scanMerge(streams, initialVal)
 
-Scan and combine multiple streams into a single stream using an initial value. This one is very handy for combining multiple event streams into a single UI state.
+Scan and merge multiple streams into a single, aggregate stream using an initial value. This one is very handy for combining multiple event streams into a single UI state.
+
+```
+[[Stream(a), ((b, a) -> b]] -> b -> Stream(b)
+```
+
+```
+s1:                                   {---1---3----}
+s2:                                   {----2----4--}
+scanMerge([[s1, add], [s2, mul]], 0): {---12--5-▼--}
+                                                20
+```
 
 ```js
 const add = stream.create()
@@ -198,20 +251,52 @@ mul(4)
 result() // -> 20
 ```
 
+## buffer(n, stream)
+
+Collect values from stream into a buffer array until the array reaches length `n`. Once it reaches length `n`, then emit that array into a stream.
+
+```
+Number -> Stream(a) -> Stream([a])
+```
+
+```
+s:            {---1-2--3--4---}
+buffer(2, s): {-----▼-----▼---}
+                    [1,2] [3,4]
+```
+
+```js
+const s = stream.create()
+const b = buffer(2, s)
+s(1)
+b() // -> undefined
+s(2)
+b() // -> [1,2]
+s(3)
+b() // -> [1,2]
+s(4)
+b() // -> [3,4]
+```
+
 # Time-related
 
-## every(ms, maxMS)
+## every(ms, endStream)
 
-Create a new stream that emits a timestamp every `ms` until we've been running for `maxMS`
+Create a new stream that emits a timestamp every `ms`. The stream will end when `endStream` emits any value.
+
+```
+Number -> Stream(a) -> Stream(Number)
+```
 
 ```
 (each hyphen represents 10ms)
 
-every(10, 40):    {-t-t-t-t----}
+every(20, e):    {-t-t-t-t----}
 ```
 
 ```js
-const e = stream.every(10, 40)
+const end = stream.create()
+const e = stream.every(10, end)
 const count = stream.scan(c => c + 1, 0, e)
 
 setTimeout(() => {
@@ -220,14 +305,21 @@ setTimeout(() => {
 
 setTimeout(() => {
   count() // -> 2
+  end(true)
 }, 20)
 
-//etc. up to 40ms
+setTimeout(() => {
+  count() // -> 2 (stream has been ended, so will not get incremented)
+}, 30)
 ```
 
 ## throttle(ms, stream)
 
 Create a stream that only emits values from a source stream at most every `ms`
+
+```
+Number -> Stream(a) -> Stream(a)
+```
 
 ```
 (each hyphen represents 10ms)
@@ -257,6 +349,17 @@ In the above example, a 10ms timer is started at `s(1)`, and the value 5 is emit
 Create a stream that emits values after `ms` of silence from the source stream.
 
 ```
+Number -> Stream(a) -> Stream(a)
+```
+
+```
+(each hyphen represents 10ms)
+
+s:                    {---ab---c----cdef-}
+afterSilence(30, s):  {-------b---c------}
+```
+
+```
 (each hyphen represents 10ms)
 
 s:                    {--abc--d---ef---}
@@ -264,11 +367,36 @@ afterSilence(10,s):   {------c--d----f-}
 ```
 
 ```js
+const s = stream.create()
+const d = stream.afterSilence(10, s)
+s(1); s(2)
+d() // -> undefined
+
+// 5ms later..
+setTimeout(() => {
+  s(3)
+}, 5)
+
+// 10ms later..
+setTimeout(() => {
+  d() // -> undefined
+}, 10)
+
+// 20ms later..
+setTimeout(() => {
+  d() // -> 3
+  s(4)
+  d() // -> 3 (remains unchanged)
+}, 20)
 ```
 
 ## delay(ms, stream)
 
 Create a stream that emits every value from a source stream after an `ms` delay
+
+```
+Number -> Stream(a) -> Stream(a)
+```
 
 ```
 (each hyphen represents 10ms)
