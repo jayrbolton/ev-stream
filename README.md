@@ -278,6 +278,38 @@ s(4)
 b() // -> [3,4]
 ```
 
+## object(obj)
+
+Convert an object containing many streams into a single stream of plain, static objects.
+
+```js
+
+const s1 = stream.create()
+const s2 = stream.create()
+const objOfStreams = {
+  s1: s1
+, nested: { s2: s2 }
+}
+
+const streamOfObjs = stream.object(objOfStreams)
+streamOfObjs() // -> {s1: undefined, {s2: undefined}}
+s1(1)
+streamOfObjs() // -> {s1: 1, {s2: undefined}}
+s2(1)
+streamOfObjs() // -> {s1: 1, {s2: 1}}
+s1(2) 
+streamOfObjs() // -> {s1: 2, {s2: 1}}
+```
+
+## isStream(value)
+
+Test whether a given value is a stream
+
+```js
+stream.isStream(stream.create()) // -> true
+stream.isStream({x: 'x'}) // -> false
+```
+
 # Time-related
 
 ## every(ms, endStream)
