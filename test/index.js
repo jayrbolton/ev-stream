@@ -218,3 +218,25 @@ test("weird example from a flyd issue", t => {
   t.end()
 })
 
+test('.object: basic stream in obj', t => {
+  const s1 = stream.create()
+  const m = stream.object({s: s1})
+  s1(1)
+  t.deepEqual(m().s, 1)
+  t.end()
+})
+
+test('.object: static vals', t => {
+  const m = stream.object({s: 1})
+  t.deepEqual(m().s, 1)
+  t.end()
+})
+
+test('.object: nested streams', t => {
+  const s1 = stream.create()
+  const m = stream.object({nested: {s: s1}})
+  s1(1)
+  t.deepEqual(m().nested.s, 1)
+  t.end()
+})
+

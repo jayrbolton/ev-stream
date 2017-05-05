@@ -5,13 +5,13 @@ var curryN = require('ramda/src/curryN');
 // Create a new stream with an optional initial value
 var create = function (val) {
   var data = { val: val, updaters: [] };
-  var fn = function (val) {
+  var fn = function Stream(val) {
     if (arguments.length === 0) return data.val;
     update(data, val);
     return fn;
   };
-  fn.data = data; // cache for later
-  fn.toString = function () {
+  fn.data = data; // cache value and updaters for future accesses and updates
+  fn.prototype.toString = function () {
     return 'stream(' + data.val + ')';
   };
   return fn;
@@ -20,9 +20,9 @@ var create = function (val) {
 // Update stream data and all dependents with a new val
 var update = function (streamData, val) {
   streamData.val = val;
-  for (var i = 0; i < streamData.updaters.length; ++i) {
-    streamData.updaters[i](val);
-  }
+  streamData.updaters.forEach(function (updater) {
+    return updater(val);
+  });
 };
 
 // Create a new stream with fn applied to all values within stream
@@ -124,10 +124,13 @@ var log = function (stream, annotation) {
 // Map over a stream, where fn returns a nested stream. Flatten into a single-level stream
 var flatMap = curryN(2, function (fn, stream) {
   var newS = create(stream());
-  stream.data.updaters.push(function (val) {
-    return map(function (val) {
+  stream.data.updaters.push(function (elem) {
+    var innerStream = fn(elem);
+    var initialVal = innerStream();
+    if (initialVal) newS(initialVal);
+    map(function (val) {
       return newS(val);
-    }, fn(val));
+    }, innerStream);
   });
   return newS;
 });
@@ -191,5 +194,46 @@ var afterSilence = function (ms, stream) {
   return newS;
 };
 
-module.exports = { create: create, map: map, merge: merge, scan: scan, buffer: buffer, filter: filter, scanMerge: scanMerge, defaultTo: defaultTo, always: always, flatMap: flatMap, delay: delay, every: every, throttle: throttle, afterSilence: afterSilence };
+// Convert an object containing many streams into a single stream containing objects of static values
+var object = function (obj) {
+  var keyStreams = [];
+  var initial = {};
+
+  for (var key in obj) {
+    // Recurse on any nested objects
+    if (isPlainObj(obj[key])) {
+      obj[key] = object(obj[key]);
+    }
+    // Create an aggregate stream that emits the object property name when the value stream emits anything
+    // Clone all the initial data into a static object
+    if (isStream(obj[key])) {
+      keyStreams.push(always(key, obj[key]));
+      initial[key] = obj[key]();
+    } else {
+      initial[key] = obj[key];
+    }
+  }
+
+  return scan(function (data, key) {
+    data[key] = obj[key]();
+    return data;
+  }, initial, merge(keyStreams));
+};
+
+var isPlainObj = function (obj) {
+  if (typeof obj === 'object' && obj !== null) {
+    if (typeof Object.getPrototypeOf === 'function') {
+      var proto = Object.getPrototypeOf(obj);
+      return proto === Object.prototype || proto === null;
+    }
+    return Object.prototype.toString.call(obj) == '[object Object]';
+  }
+  return false;
+};
+
+var isStream = function (x) {
+  return typeof x === 'function' && x.name === 'Stream';
+};
+
+module.exports = { create: create, map: map, merge: merge, scan: scan, buffer: buffer, filter: filter, scanMerge: scanMerge, defaultTo: defaultTo, always: always, flatMap: flatMap, delay: delay, every: every, throttle: throttle, afterSilence: afterSilence, object: object, isStream: isStream };
 

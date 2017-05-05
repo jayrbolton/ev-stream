@@ -3,22 +3,20 @@ const curryN = require('ramda/src/curryN')
 // Create a new stream with an optional initial value
 const create = val => {
   const data = {val, updaters: []}
-  const fn = function(val) {
+  const fn = function Stream(val) {
     if(arguments.length === 0) return data.val
     update(data, val)
     return fn
   }
-  fn.data = data // cache for later
-  fn.toString = () => `stream(${data.val})`
+  fn.data = data // cache value and updaters for future accesses and updates
+  fn.prototype.toString = () => `stream(${data.val})`
   return fn
 }
 
 // Update stream data and all dependents with a new val
 const update = (streamData, val) => {
   streamData.val = val
-  for(var i = 0; i < streamData.updaters.length; ++i) {
-    streamData.updaters[i](val)
-  }
+  streamData.updaters.forEach((updater) => updater(val))
 }
 
 // Create a new stream with fn applied to all values within stream
@@ -100,7 +98,12 @@ const log = (stream, annotation) => {
 // Map over a stream, where fn returns a nested stream. Flatten into a single-level stream
 const flatMap = curryN(2, (fn, stream) => {
   const newS = create(stream())
-  stream.data.updaters.push(val => map(val => newS(val), fn(val)))
+  stream.data.updaters.push(elem => {
+    var innerStream = fn(elem)
+    var initialVal = innerStream()
+    if(initialVal) newS(initialVal)
+    map(val => newS(val), innerStream)
+  })
   return newS
 })
 
@@ -159,5 +162,45 @@ const afterSilence = (ms, stream) => {
   return newS
 }
 
-module.exports = {create, map, merge, scan, buffer, filter, scanMerge, defaultTo, always, flatMap, delay, every, throttle, afterSilence}
+// Convert an object containing many streams into a single stream containing objects of static values
+const object = (obj) => {
+  var keyStreams = []
+  var initial = {}
+
+  for (var key in obj) {
+    // Recurse on any nested objects
+    if (isPlainObj(obj[key])) {
+      obj[key] = object(obj[key])
+    }
+    // Create an aggregate stream that emits the object property name when the value stream emits anything
+    // Clone all the initial data into a static object
+    if (isStream(obj[key])) {
+      keyStreams.push( always(key, obj[key]) )
+      initial[key] = obj[key]()
+    } else {
+      initial[key] = obj[key]
+    }
+  }
+
+  return scan((data, key) => {
+    data[key] = obj[key]()
+    return data
+  }, initial, merge(keyStreams))
+}
+
+const isPlainObj = (obj) => {
+  if (typeof obj === 'object' && obj !== null) {
+    if (typeof Object.getPrototypeOf === 'function') {
+      var proto = Object.getPrototypeOf(obj)
+      return proto === Object.prototype || proto === null
+    }
+    return Object.prototype.toString.call(obj) == '[object Object]'
+  }
+  return false
+}
+
+const isStream = (x) =>
+  typeof x === 'function' && x.name === 'Stream'
+
+module.exports = {create, map, merge, scan, buffer, filter, scanMerge, defaultTo, always, flatMap, delay, every, throttle, afterSilence, object, isStream}
 
