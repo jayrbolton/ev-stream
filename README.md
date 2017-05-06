@@ -1,6 +1,6 @@
 # ev-stream
 
-A tiny implementation of FRP **event streams** in JS, inspired by [flyd](https://github.com/paldepind/flyd). This type of data structure is often known as an "observable."
+A tiny implementation of FRP **event streams** in JS, inspired by [flyd](https://github.com/paldepind/flyd).
 
 * very simple and minimal implementation (around 200 SLOC)
 * eager, non-lazy evaluation
