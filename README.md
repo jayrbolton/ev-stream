@@ -2,7 +2,7 @@
 
 A tiny implementation of FRP **event streams** in JS, inspired by [flyd](https://github.com/paldepind/flyd). This type of data structure is often known as an "observable."
 
-* very simple and minimal implementation (less than 200 SLOC)
+* very simple and minimal implementation (around 200 SLOC)
 * eager, non-lazy evaluation
 * catered towards web development
 * all functions are curried
